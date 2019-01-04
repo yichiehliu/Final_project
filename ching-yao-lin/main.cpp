@@ -183,11 +183,57 @@ void drop(int x, int y, int indexOfWordPrinted, double velocity, Vocab* dropping
 
     for(y = orgY; y <= height; y++) // 讓一個單字從(y座標=0)掉到(y座標=height)
     {
+        while (_kbhit())//如果有按键按下，则_kbhit()函数返回真
+        {
+            char ch = _getch();
+            //gotoxy(x-5,y), cout<<"!!!"<<endl;
+            SetColor(255);
+
+            gotoxy(x-strlen(droppingVocabs[indexOfWordPrinted].letter),y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);//使用_getch()函数获取按下的键值
+            colorChange(droppingVocabs, numOfVocabs, ch);
+            SetColor(255);
+            gotoxy(x,y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
+            SetColor();
+            //gotoxy(x,y), printInColor(droppingVocabs[indexOfWordPrinted]);
+            if (ch == 27){ break; }//当按下ESC时循环，ESC键的键值时27.
+            eraseVocabsIfNeeded(droppingVocabs[indexOfWordPrinted], wordDisappear);
+            if(wordDisappear == true)
+            {
+                SetColor(255);
+                gotoxy(x,y+1), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
+                SetColor();
+                //cout << "EXIT drop FUNCTION" << endl;
+                return;
+            }
+        }
 
         delay(500 - velocity); // 每次移動之間間隔 0.5 秒 (500ms), 不過input的velocity會越來越大、直到400會固定
         SetColor(255);
         gotoxy(x,y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2); // 移動到下一個座標前先清除原來的文字
 
+        while (_kbhit())//如果有按键按下，则_kbhit()函数返回真
+        {
+            char ch = _getch();
+            //gotoxy(x-5,y), cout<<"!!!"<<endl;
+            SetColor(255);
+
+            gotoxy(x-strlen(droppingVocabs[indexOfWordPrinted].letter),y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);//使用_getch()函数获取按下的键值
+            colorChange(droppingVocabs, numOfVocabs, ch);
+            SetColor(255);
+            gotoxy(x,y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
+            SetColor();
+            //gotoxy(x,y), printInColor(droppingVocabs[indexOfWordPrinted]);
+            if (ch == 27){ break; }//当按下ESC时循环，ESC键的键值时27.
+            eraseVocabsIfNeeded(droppingVocabs[indexOfWordPrinted], wordDisappear);
+            if(wordDisappear == true)
+            {
+                SetColor(255);
+                gotoxy(x,y+1), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
+                SetColor();
+                //cout << "EXIT drop FUNCTION" << endl;
+                return;
+            }
+        }
         SetColor(); // 恢復原本的顏色(預設：黑底白字)
         gotoxy(x, y + 1), printInColor(droppingVocabs[indexOfWordPrinted]);
         //cout << "(x,y): " << x << "," << y << " ";
@@ -198,18 +244,24 @@ void drop(int x, int y, int indexOfWordPrinted, double velocity, Vocab* dropping
 
         while (_kbhit())//如果有按键按下，则_kbhit()函数返回真
         {
-            char ch = _getch();//使用_getch()函数获取按下的键值
+            char ch = _getch();
+            //gotoxy(x-5,y), cout<<"!!!"<<endl;
+            SetColor(255);
+
+            gotoxy(x-strlen(droppingVocabs[indexOfWordPrinted].letter),y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);//使用_getch()函数获取按下的键值
             colorChange(droppingVocabs, numOfVocabs, ch);
-            //printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
-            //printInColor(droppingVocabs[indexOfWordPrinted]);
+            SetColor(255);
+            gotoxy(x,y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
+            SetColor();
+            //gotoxy(x,y), printInColor(droppingVocabs[indexOfWordPrinted]);
             if (ch == 27){ break; }//当按下ESC时循环，ESC键的键值时27.
             eraseVocabsIfNeeded(droppingVocabs[indexOfWordPrinted], wordDisappear);
             if(wordDisappear == true)
             {
                 SetColor(255);
-                gotoxy(x,y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
+                gotoxy(x,y+1), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
                 SetColor();
-                cout << "EXIT drop FUNCTION" << endl;
+                //cout << "EXIT drop FUNCTION" << endl;
                 return;
             }
         }
