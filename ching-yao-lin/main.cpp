@@ -7,34 +7,36 @@
 #include <fstream>
 #include <stdlib.h>
 #include <iomanip>
+#include <omp.h>
 
 using namespace std;
 
 struct Vocab
 {
-    int * color; // ��letter�S���ܦ�A����0�F���ܦ�A����1�C
+    int * color; // 該letter沒有變色，等於0；有變色，等於1。
     char* letter;
 };
 /// ================== DECLARATION OF GLOBAL VARIABLES ================== ///
-const int MAX_WORDS = 1001;
-const int MAX_WORD_LEN = 20;
-int width = 50, height = 25, length = 10;
+const int MAX_WORDS = 1001;  // 從單字庫抽出的單字數
+const int MAX_WORD_LEN = 20; // 單字的最長長杜
+const int WORDS_DROPPING = 3; // 一輪總共要掉幾個字
+int width = 50, height = 25, length = 10; // 單字的活動範圍
 int randPosition = 0, orgX = 0, orgY = 0;
-string c;
 /// ================== DECLARATION OF GLOBAL FUNCTIONS ================== ///
-void Drop(int x, int y, string c, double velocity, Vocab* vocabs, int numOfVocabs);
-void colorChange(Vocab* vocabs, int numOfVocabs, char ch);
-void printInColor(Vocab* vocabs, int numOfVocabs);
-void eraseVocabsIfNeeded(Vocab* vocabs, int numOfVocabs);
-void colorPlate(); // �i�H�Ψ���ܽզ�L("�Ʀr" ���� "�r���C��")
-int RandX(int ran)
+void drop(int x, int y, char* word, double velocity, Vocab* vocabs, int numOfVocabs);
+void printSpace(int numOfSpace);
+void colorChange(Vocab* vocabs, int numOfVocabs, char ch); // 根據輸入，將第一個未變色字母變色
+void printInColor(Vocab* vocabs, int numOfVocabs); // 根據 "color不為0的字母要變色" 的規則，印出該單字
+void eraseVocabsIfNeeded(Vocab* vocabs, int numOfVocabs); // 當單字全部變色，清空該單字
+void colorPlate(); // 可以用來顯示調色盤("數字" 對應 "字體顏色")
+int RandX(int ran) // 隨機選出一個水平位置
 {
 	int randPosition = 0;
-	srand( time(NULL) );//�T�w�üƺؤl
+	srand( time(NULL) );//固定亂數種子
 	randPosition = rand() % (width - length + 1);
 	return randPosition;
 }
-void SetColor(int color = 7) // �w�]�G�©��զr
+void SetColor(int color = 7) // 預設：黑底白字
 {
 	HANDLE hConsole;
 	hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
@@ -49,15 +51,15 @@ void SetColor(int f = 7, int b = 0)
 }
 */
 
-/// ======================== MAIN FUNCTIONS ======================== ///
+/// ======================== MAIN FUNCTION ======================== ///
 int main(){
 
-	int x = 0, y = 0, i = 0;
-	double velocity = 0;
-	system("color F0"); // �թ��¦r
+    // 基本設定初始化
+	system("color F0"); // 白底黑字
 
-	//colorPlate();
+	//colorPlate(); // 查看調色盤
 
+	// 動態記憶體配置 & 初始化
     Vocab* vocabs = new Vocab[MAX_WORDS];
     for(int i = 0; i < MAX_WORDS; i++)
         vocabs[i].letter = new char[MAX_WORD_LEN];
@@ -67,6 +69,9 @@ int main(){
         for(int j = 0; j < MAX_WORD_LEN; j++)
             vocabs[i].color[j] = 0;
     }
+    char** c = new char*[MAX_WORDS];
+    for(int i = 0; i < MAX_WORDS; i++)
+        c[i] = new char[MAX_WORD_LEN];
 
     /*
     cout << "< test >: " << endl;
@@ -81,46 +86,53 @@ int main(){
     }
     */
 
-
-    srand(unsigned(time(0))) ;
-    int randomNum = 0 ;
-    int n = 0;
-
+    // 從檔案匯入單字庫
     ifstream file("file.txt");
-
     const int TOTAL_VOCAB_NUM = MAX_WORDS - 1;
+    int i = 0;
     if(file.is_open())
     {
         for(i = 1; i <= TOTAL_VOCAB_NUM; ++i)
         {
-            file >> vocabs[i].letter;
+            file >> vocabs[i].letter; // 物件vocabs被依序填滿單字
         }
     }
     else
         cout << "Error in reading files" << endl;
-    //for (i = 1 ; i <= TOTAL_VOCAB_NUM ; i++)
-        //cout << vocabs[i].letter << "\n" ;
+    /*
+    for (i = 1 ; i <= TOTAL_VOCAB_NUM ; i++)
+        cout << vocabs[i].letter << "\n" ;
+    */
 
+    // 隨機從單字庫抽出單字
+    int n = 1;
+    int x = 0, y = 0;
+	double velocity = 0;
+    int randomNum = 0;
+    int numOfVocabs = 3;
+    srand( unsigned(time(0)) );
     //cin >> n;
 
-	while(1){
+	while(1)
+    {
 
-	    n = 1;
-		for (i = 0 ; i < n ; i++)
+		for (i = 0 ; i < MAX_WORDS; i++)
 	    {
-	        randomNum = (rand() % 1000); // generate number from 0 -999
+	        randomNum = (rand() % 1000); // generate random number from 0 ~ 999
 	        //cout << randomNum << " ";
-	        c = vocabs[randomNum].letter;
+	        //strcpy(c[i], vocabs[randomNum].letter); // 從物件vocabs隨機挑出一個單字，共挑MAX_WORDS個
 	        //cout << vocabs[randomNum].letter << "\n";
+	        //cout << "c[" << i << "] = " << c[i] << "\n";
 
+	        if (velocity < 400) velocity = velocity + 40; //漸漸加速
+            else if (velocity == 400) velocity = 400;
+
+            drop(x, y, vocabs[randomNum].letter, velocity, vocabs, numOfVocabs);
 	    }
-		if (velocity < 400) velocity = velocity + 40;
-		if (velocity == 400) velocity = 400;//�����[�t
 
-        Drop(x, y, c, velocity, vocabs, TOTAL_VOCAB_NUM);
 	}
 
-	/** �L�[ģ - �����D�ө���̪�CODE
+	/** 林璟耀 - 不知道該放哪裡的CODE
 	cout << "Type any letter to change colors: " << endl;
     for(;1;)
     {
@@ -137,26 +149,54 @@ int main(){
 	return 0 ;
 }
 /// ======================== GLOBAL FUNCTIONS ======================== ///
-void Drop(int x, int y, string c, double velocity, Vocab* vocabs, int numOfVocabs)
+void play(int x, int y, char* word, double velocity, Vocab* vocabs, int numOfVocabs)
 {
+
+}
+void drop(int x, int y, char* word, double velocity, Vocab* vocabs, int numOfVocabs)
+{
+    /*
+    double velocity = 0;
+    if (velocity < 400) velocity = velocity + 40; //漸漸加速
+    else if (velocity == 400) velocity = 400;
+    */
+
 	int ran = 0;
 	x = RandX(ran) + 1;
+	gotoxy(x,orgY); // 游標移到隨機的x座標
 
-	gotoxy(x,orgY);
+	int freq = numOfVocabs;
 
-		for (y = orgY; y <= height; y++)
-		{
+	#pragma omp parallel for
+    for(y = orgY; y <= height; y++) // 讓一個單字從(y座標=0)掉到(y座標=height)
+    {
 
-		    delay(500-velocity); // �C�����ʤ������j 0.5 �� (500ms)
-		    gotoxy(x,y), cout << "                     "; // ���ʨ�U�@�Ӯy�Ыe���M����Ӫ���r
-		    SetColor(15);
-			gotoxy(x,y+1), cout << c;
-			cout << "(x,y): " << x << "," << y;
-			SetColor(255);
-		}
-			SetColor(255);
-			gotoxy(x,y), cout << "                     ";
+        delay(500 - velocity); // 每次移動之間間隔 0.5 秒 (500ms), 不過input的velocity會越來越大、直到400會固定
+        //gotoxy(x,y), printSpace(strlen(word))/*cout << "                     "*/; // 移動到下一個座標前先清除原來的文字
 
+        SetColor(); // 恢復原本的顏色(預設：黑底白字)
+        gotoxy(x, y + 1), cout << word;
+        //cout << "(x,y): " << x << "," << y << " ";
+        //cout << "len = " << strlen(word);
+        SetColor(255);
+
+        gotoxy(x,y), printSpace(strlen(word))/*cout << "                     "*/; // 移動到下一個座標前先清除原來的文字
+
+        char ch;
+        if (_kbhit())//如果有按键按下，则_kbhit()函数返回真
+        {
+            ch = _getch();//使用_getch()函数获取按下的键值
+            colorChange(vocabs, numOfVocabs, ch);
+            if (ch == 27){ break; }//当按下ESC时循环，ESC键的键值时27.
+        }
+    }
+        SetColor(255);
+        gotoxy(x,y), printSpace(strlen(word))/*cout << "                     "*/;
+}
+void printSpace(int numOfSpace)
+{
+    for(int i = 0; i < numOfSpace; i++)
+        cout << " ";
 }
 void colorChange(Vocab* vocabs, int numOfVocabs, char ch)
 {
@@ -225,7 +265,7 @@ void eraseVocabsIfNeeded(Vocab* vocabs, int numOfVocabs)
     bool wordDisappear = false;
     for(int i = 0; i < numOfVocabs; i++)
     {
-        if(sum[i] == strlen(vocabs[i].letter)) // ���r�O�����ܦ⪺
+        if(sum[i] == strlen(vocabs[i].letter)) // 有字是全部變色的
         {
             HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
             SetConsoleTextAttribute(hConsole, 4);
@@ -245,12 +285,12 @@ void eraseVocabsIfNeeded(Vocab* vocabs, int numOfVocabs)
         {
             for(int j = 0; j < MAX_WORD_LEN; j++)
                 vocabs[i].color[j] = 0; /// reset all colors
-            /// �O���O + 1 (�y��)
+            /// 記分板 + 1 (宜婕)
         }
     }
 
 }
-void colorPlate() // �i�H�Ψ���ܽզ�L("�Ʀr" ���� "�r���C��")
+void colorPlate() // 可以用來顯示調色盤("數字" 對應 "字體顏色")
 {
     cout << "     ===================================== COLOR PLATE ===================================== " << endl;
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
