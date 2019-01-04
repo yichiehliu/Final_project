@@ -7,7 +7,7 @@
 #include <fstream>
 #include <stdlib.h>
 #include <iomanip>
-#include <omp.h>
+#include <omp.h> // #pragma omp parallel for
 
 using namespace std;
 
@@ -19,15 +19,17 @@ struct Vocab
 /// ================== DECLARATION OF GLOBAL VARIABLES ================== ///
 const int MAX_WORDS = 1001;  // 從單字庫抽出的單字數
 const int MAX_WORD_LEN = 20; // 單字的最長長杜
-const int WORDS_DROPPING = 3; // 一輪總共要掉幾個字
+const int WORDS_DROPPING = 5; // 一輪總共要掉幾個字
 int width = 50, height = 25, length = 10; // 單字的活動範圍
 int randPosition = 0, orgX = 0, orgY = 0;
 /// ================== DECLARATION OF GLOBAL FUNCTIONS ================== ///
-void drop(int x, int y, char* word, double velocity, Vocab* vocabs, int numOfVocabs);
+void drop(int x, int y, int indexOfWordPrinted, double velocity, Vocab* vocabs, int numOfVocabs);
 void printSpace(int numOfSpace);
 void colorChange(Vocab* vocabs, int numOfVocabs, char ch); // 根據輸入，將第一個未變色字母變色
-void printInColor(Vocab* vocabs, int numOfVocabs); // 根據 "color不為0的字母要變色" 的規則，印出該單字
-void eraseVocabsIfNeeded(Vocab* vocabs, int numOfVocabs); // 當單字全部變色，清空該單字
+void printInColor(Vocab droppingVocabs); // 印出一個單字
+void printInColor(Vocab* droppingVocabs, int numOfVocabs); // 根據 "color不為0的字母要變色" 的規則，印出該單字
+void eraseVocabsIfNeeded(Vocab droppingVocabs, bool& wordDisappear); // erase一個單字
+void eraseVocabsIfNeeded(Vocab* droppingVocabs, int numOfVocabs, bool& wordDisappear); // 當單字全部變色，清空該單字
 void colorPlate(); // 可以用來顯示調色盤("數字" 對應 "字體顏色")
 int RandX(int ran) // 隨機選出一個水平位置
 {
@@ -69,6 +71,17 @@ int main(){
         for(int j = 0; j < MAX_WORD_LEN; j++)
             vocabs[i].color[j] = 0;
     }
+    // 動態記憶體配置 & 初始化
+    Vocab* droppingVocabs = new Vocab[MAX_WORDS];
+    for(int i = 0; i < MAX_WORDS; i++)
+        droppingVocabs[i].letter = new char[MAX_WORD_LEN];
+    for(int i = 0; i < MAX_WORDS; i++)
+    {
+        droppingVocabs[i].color = new int[MAX_WORD_LEN];
+        for(int j = 0; j < MAX_WORD_LEN; j++)
+            droppingVocabs[i].color[j] = 0;
+    }
+    // 動態記憶體配置 & 初始化
     char** c = new char*[MAX_WORDS];
     for(int i = 0; i < MAX_WORDS; i++)
         c[i] = new char[MAX_WORD_LEN];
@@ -109,7 +122,7 @@ int main(){
     int x = 0, y = 0;
 	double velocity = 0;
     int randomNum = 0;
-    int numOfVocabs = 3;
+    int numOfVocabs = WORDS_DROPPING;
     srand( unsigned(time(0)) );
     //cin >> n;
 
@@ -120,14 +133,14 @@ int main(){
 	    {
 	        randomNum = (rand() % 1000); // generate random number from 0 ~ 999
 	        //cout << randomNum << " ";
-	        //strcpy(c[i], vocabs[randomNum].letter); // 從物件vocabs隨機挑出一個單字，共挑MAX_WORDS個
+	        strcpy(droppingVocabs[i].letter, vocabs[randomNum].letter); // 從物件vocabs隨機挑出一個單字，共挑MAX_WORDS個
 	        //cout << vocabs[randomNum].letter << "\n";
 	        //cout << "c[" << i << "] = " << c[i] << "\n";
 
 	        if (velocity < 400) velocity = velocity + 40; //漸漸加速
             else if (velocity == 400) velocity = 400;
 
-            drop(x, y, vocabs[randomNum].letter, velocity, vocabs, numOfVocabs);
+            drop(x, y, i, velocity, droppingVocabs, numOfVocabs);
 	    }
 
 	}
@@ -149,11 +162,11 @@ int main(){
 	return 0 ;
 }
 /// ======================== GLOBAL FUNCTIONS ======================== ///
-void play(int x, int y, char* word, double velocity, Vocab* vocabs, int numOfVocabs)
+void play(int x, int y, char* word, double velocity, Vocab* droppingVocabs, int numOfVocabs)
 {
 
 }
-void drop(int x, int y, char* word, double velocity, Vocab* vocabs, int numOfVocabs)
+void drop(int x, int y, int indexOfWordPrinted, double velocity, Vocab* droppingVocabs, int numOfVocabs)
 {
     /*
     double velocity = 0;
@@ -166,116 +179,129 @@ void drop(int x, int y, char* word, double velocity, Vocab* vocabs, int numOfVoc
 	gotoxy(x,orgY); // 游標移到隨機的x座標
 
 	int freq = numOfVocabs;
+    bool wordDisappear = false;
 
-	#pragma omp parallel for
     for(y = orgY; y <= height; y++) // 讓一個單字從(y座標=0)掉到(y座標=height)
     {
 
         delay(500 - velocity); // 每次移動之間間隔 0.5 秒 (500ms), 不過input的velocity會越來越大、直到400會固定
-        //gotoxy(x,y), printSpace(strlen(word))/*cout << "                     "*/; // 移動到下一個座標前先清除原來的文字
+        SetColor(255);
+        gotoxy(x,y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2); // 移動到下一個座標前先清除原來的文字
 
         SetColor(); // 恢復原本的顏色(預設：黑底白字)
-        gotoxy(x, y + 1), cout << word;
+        gotoxy(x, y + 1), printInColor(droppingVocabs[indexOfWordPrinted]);
         //cout << "(x,y): " << x << "," << y << " ";
-        //cout << "len = " << strlen(word);
+        //cout << "len = " << strlen(droppingVocabs[indexOfWordPrinted].letter);
         SetColor(255);
 
-        gotoxy(x,y), printSpace(strlen(word))/*cout << "                     "*/; // 移動到下一個座標前先清除原來的文字
+        //gotoxy(x,y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2); // 移動到下一個座標前先清除原來的文字
 
-        char ch;
-        if (_kbhit())//如果有按键按下，则_kbhit()函数返回真
+        while (_kbhit())//如果有按键按下，则_kbhit()函数返回真
         {
-            ch = _getch();//使用_getch()函数获取按下的键值
-            colorChange(vocabs, numOfVocabs, ch);
+            char ch = _getch();//使用_getch()函数获取按下的键值
+            colorChange(droppingVocabs, numOfVocabs, ch);
+            //printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
+            //printInColor(droppingVocabs[indexOfWordPrinted]);
             if (ch == 27){ break; }//当按下ESC时循环，ESC键的键值时27.
+            eraseVocabsIfNeeded(droppingVocabs[indexOfWordPrinted], wordDisappear);
+            if(wordDisappear == true)
+            {
+                SetColor(255);
+                gotoxy(x,y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
+                SetColor();
+                cout << "EXIT drop FUNCTION" << endl;
+                return;
+            }
         }
+
     }
         SetColor(255);
-        gotoxy(x,y), printSpace(strlen(word))/*cout << "                     "*/;
+        gotoxy(x,y), printSpace(strlen(droppingVocabs[indexOfWordPrinted].letter) + 2);
+
+
 }
 void printSpace(int numOfSpace)
 {
     for(int i = 0; i < numOfSpace; i++)
         cout << " ";
 }
-void colorChange(Vocab* vocabs, int numOfVocabs, char ch)
+void colorChange(Vocab* droppingVocabs, int numOfVocabs, char ch)
 {
     for(int i = 0; i < numOfVocabs; i++)
     {
         ///Find the first color-unchanged letter for each vocab, check if it's ch.
-        for(int j = 0; j < strlen(vocabs[i].letter); j++)
+        for(int j = 0; j < strlen(droppingVocabs[i].letter); j++)
         {
-            if(vocabs[i].color[j] == 0) // the first unchanged letter
+            if(droppingVocabs[i].color[j] == 0) // the first unchanged letter
             {
-                if(vocabs[i].letter[j] == ch) // this letter matches the input char
+                if(droppingVocabs[i].letter[j] == ch) // this letter matches the input char
                 {
-                    vocabs[i].color[j] = 1; // mark the color as 1, meaning "to be changed"
+                    droppingVocabs[i].color[j] = 1; // mark the color as 1, meaning "to be changed"
                 }
                 break;
             }
         }
     }
-
-    printInColor(vocabs, numOfVocabs);
+    // test:
+    //printInColor(droppingVocabs, numOfVocabs);
 
 }
-void printInColor(Vocab* vocabs, int numOfVocabs)
+void printInColor(Vocab droppingVocabs)
+{
+    int j = 0;
+    while(droppingVocabs.color[j] != 0)
+    {
+        HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+        SetConsoleTextAttribute(hConsole, 224);
+        cout << droppingVocabs.letter[j];
+        j++;
+    }
+    SetColor();
+
+    while(j <= strlen(droppingVocabs.letter))
+    {
+        cout << droppingVocabs.letter[j];
+        j++;
+    }
+}
+void printInColor(Vocab* droppingVocabs, int numOfVocabs)
 {
     for(int i = 0; i < numOfVocabs; i++)
     {
         int j = 0;
-        while(vocabs[i].color[j] != 0)
+        while(droppingVocabs[i].color[j] != 0)
         {
             HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
             SetConsoleTextAttribute(hConsole, 224);
-            cout << vocabs[i].letter[j];
+            cout << droppingVocabs[i].letter[j];
             j++;
         }
         SetColor();
 
-        while(j <= strlen(vocabs[i].letter))
+        while(j <= strlen(droppingVocabs[i].letter))
         {
-            cout << vocabs[i].letter[j];
+            cout << droppingVocabs[i].letter[j];
             j++;
         }
     }
 }
-void eraseVocabsIfNeeded(Vocab* vocabs, int numOfVocabs)
+void eraseVocabsIfNeeded(Vocab droppingVocabs, bool& wordDisappear)
 {
-    /// Calculate the sum of color array for each vocab
-    int* sum = new int[numOfVocabs];
-    for(int i = 0; i < numOfVocabs; i++)
-    {
-        sum[i] = 0;
-        for(int j = 0; j < MAX_WORD_LEN; j++)
-            sum[i] += vocabs[i].color[j];
-    }
-    /*
-    cout << "< test sum >:" << endl;
-    for(int i = 0; i < numOfVocabs; i++)
-        cout << "sum[" << i << "] = " << sum[i] << endl;
+    int sum = 0;
+    for(int i = 0; i < MAX_WORD_LEN; i++)
+        sum += droppingVocabs.color[i];
 
-    cout << "< test strlen >:" << endl;
-    for(int i = 0; i < numOfVocabs; i++)
-        cout << "strlen(vocabs[" << i << "].letter) = " << strlen(vocabs[i].letter) << endl;
-    */
-
-
-    /// if the sum of color array == strlen(letter array of vocab), reset the memory
-    bool wordDisappear = false;
-    for(int i = 0; i < numOfVocabs; i++)
-    {
-        if(sum[i] == strlen(vocabs[i].letter)) // 有字是全部變色的
+    if(sum == strlen(droppingVocabs.letter)) // 全部變色
         {
             HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
             SetConsoleTextAttribute(hConsole, 4);
-            cout << "======== Erase " << vocabs[i].letter << " !!!========" << endl;
+            //cout << "======== Erase " << droppingVocabs[i].letter << " !!!========" << endl;
             SetColor();
-            //delete[] vocabs[i].letter;
-            strcpy(vocabs[i].letter, "*ERASED*");
+            //delete[] droppingVocabs[i].letter;
+            strcpy(droppingVocabs.letter, "*ERASED*");
             for(int j = 0; j < MAX_WORD_LEN; j++)
             {
-                vocabs[i].color[j] = 0;
+                droppingVocabs.color[j] = 0;
             }
 
             wordDisappear = true;
@@ -284,8 +310,59 @@ void eraseVocabsIfNeeded(Vocab* vocabs, int numOfVocabs)
         if(wordDisappear == true) // if there's a word disappeared, reset all colors
         {
             for(int j = 0; j < MAX_WORD_LEN; j++)
-                vocabs[i].color[j] = 0; /// reset all colors
+                droppingVocabs.color[j] = 0; /// reset all colors
             /// 記分板 + 1 (宜婕)
+            //cout << "EXIT eraseVocabsIfNeeded FUNCTION." << endl;
+            return;
+        }
+}
+void eraseVocabsIfNeeded(Vocab* droppingVocabs, int numOfVocabs, bool& wordDisappear)
+{
+    /// Calculate the sum of color array for each vocab
+    int* sum = new int[numOfVocabs];
+    for(int i = 0; i < numOfVocabs; i++)
+    {
+        sum[i] = 0;
+        for(int j = 0; j < MAX_WORD_LEN; j++)
+            sum[i] += droppingVocabs[i].color[j];
+    }
+    /*
+    cout << "< test sum >:" << endl;
+    for(int i = 0; i < numOfVocabs; i++)
+        cout << "sum[" << i << "] = " << sum[i] << endl;
+
+    cout << "< test strlen >:" << endl;
+    for(int i = 0; i < numOfVocabs; i++)
+        cout << "strlen(droppingVocabs[" << i << "].letter) = " << strlen(droppingVocabs[i].letter) << endl;
+    */
+
+
+    /// if the sum of color array == strlen(letter array of vocab), reset the memory
+    wordDisappear = false;
+    for(int i = 0; i < numOfVocabs; i++)
+    {
+        if(sum[i] == strlen(droppingVocabs[i].letter)) // 有字是全部變色的
+        {
+            HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
+            SetConsoleTextAttribute(hConsole, 4);
+            //cout << "======== Erase " << droppingVocabs[i].letter << " !!!========" << endl;
+            SetColor();
+            //delete[] droppingVocabs[i].letter;
+            strcpy(droppingVocabs[i].letter, "*ERASED*");
+            for(int j = 0; j < MAX_WORD_LEN; j++)
+            {
+                droppingVocabs[i].color[j] = 0;
+            }
+
+            wordDisappear = true;
+        }
+
+        if(wordDisappear == true) // if there's a word disappeared, reset all colors
+        {
+            for(int j = 0; j < MAX_WORD_LEN; j++)
+                droppingVocabs[i].color[j] = 0; /// reset all colors
+            /// 記分板 + 1 (宜婕)
+            return;
         }
     }
 
